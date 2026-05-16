@@ -1,36 +1,50 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# WhatsApp Bulk Sender
 
-## Getting Started
+Local Electron + Next.js desktop app for sending WhatsApp text and image campaigns to your own expected contacts through Baileys.
 
-First, run the development server:
+## Warning
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+Baileys is an unofficial WhatsApp Web client. WhatsApp can ban numbers used for unsolicited or high-volume automation. This app includes random delays, confirmation warnings, duplicate cleanup, and self-send prevention, but those do not make cold bulk messaging safe.
+
+## Setup
+
+1. Install Node 20+.
+2. Run `npm install`.
+3. Create a Supabase project.
+4. Run the SQL schema from the project brief in the Supabase SQL Editor.
+5. Create public Storage buckets named `campaign-images` and `template-images`.
+6. Copy `.env.example` to `.env.local` and fill in:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_APP_PIN=1234
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The complete SQL is also available in `supabase/schema.sql`. It includes the campaign tables, Storage policies, and a plain-text `pins` table seeded with `1234`.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+7. Start development with `npm run dev`.
+8. Click Connect, then scan the QR from WhatsApp Settings -> Linked Devices -> Link a Device.
+9. Build an installer with `npm run build`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+- `npm run dev` runs Next.js and Electron together.
+- `npm run dev:next` runs only the Next.js server.
+- `npm run dev:electron` opens Electron after localhost is ready.
+- `npm run build:next` checks the Next.js production build.
+- `npm run build` builds Next.js and packages Electron.
 
-To learn more about Next.js, take a look at the following resources:
+## Electron behavior
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Dev mode expects Next.js at `http://localhost:3000`; `npm run dev` starts both processes.
+- Production mode starts the bundled Next.js server from Electron, waits for localhost, then opens the desktop window.
+- The app enforces a single running instance. Opening it again focuses the existing window.
+- External links are opened in the system browser.
+- WhatsApp session files are stored in Electron's user data folder in production and `./auth_session` during local Next.js-only development.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Notes
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The PIN gate is client-side only. It is a local safety latch, not real authentication.
+- `auth_session/` stores the WhatsApp linked-device session in development and is gitignored.
+- Logout deletes `auth_session/`, so the next connect shows a fresh QR.

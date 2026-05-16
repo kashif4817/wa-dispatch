@@ -1,23 +1,69 @@
 {
-  "name": "my-app",
+  "name": "whatsapp-bulk-sender",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev:next": "next dev",
+    "dev:electron": "wait-on http://localhost:3000 && electron .",
+    "dev": "concurrently \"npm:dev:next\" \"npm:dev:electron\"",
+    "build:next": "next build",
+    "start:next": "next start",
+    "electron": "electron .",
+    "build": "next build && electron-builder",
     "lint": "eslint"
   },
+  "main": "electron/main.js",
   "dependencies": {
-    "next": "16.2.6",
+    "@supabase/supabase-js": "^2.87.1",
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "lucide-react": "^0.556.0",
+    "next": "15.5.9",
+    "qrcode": "^1.5.4",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "babel-plugin-react-compiler": "1.0.0",
+    "concurrently": "^9.2.1",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4"
+    "eslint-config-next": "15.5.9",
+    "tailwindcss": "^4",
+    "wait-on": "^9.0.3"
+  },
+  "build": {
+    "appId": "com.local.whatsappbulksender",
+    "productName": "WhatsApp Bulk Sender",
+    "files": [
+      ".next/**/*",
+      "app/**/*",
+      "components/**/*",
+      "electron/**/*",
+      "lib/**/*",
+      "public/**/*",
+      "next.config.mjs",
+      "package.json",
+      "package-lock.json",
+      "node_modules/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/@whiskeysockets/baileys/**/*",
+      "node_modules/sharp/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   }
 }
