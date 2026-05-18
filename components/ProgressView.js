@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CircleStop, RadioTower } from "lucide-react";
-import { Button, Section } from "./ui";
+import { Button, Section, StatCard } from "./ui";
 
 export default function ProgressView({ onDone }) {
   const [progress, setProgress] = useState({ total: 0, sent: 0, failed: 0, skipped: 0, log: [], status: "idle" });
@@ -29,35 +29,63 @@ export default function ProgressView({ onDone }) {
   }
 
   return (
-    <Section title="Live Progress" eyebrow="Campaign runner" icon={RadioTower} aside={<Button variant="danger" onClick={cancel}><CircleStop size={16} /> Cancel</Button>}>
-      <div className="mb-4 h-3 border border-zinc-800 bg-zinc-950">
-        <div className="h-full bg-emerald-400 transition-all" style={{ width: `${percent}%` }} />
+    <Section
+      title="Live Progress"
+      eyebrow="Campaign runner"
+      icon={RadioTower}
+      aside={
+        <Button variant="danger" size="sm" onClick={cancel}>
+          <CircleStop size={14} /> Cancel
+        </Button>
+      }
+    >
+      {/* Progress bar */}
+      <div className="mb-5 overflow-hidden rounded-full bg-neutral-100 dark:bg-zinc-800">
+        <div
+          className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+          style={{ width: `${percent}%` }}
+        />
       </div>
-      <div className="mb-4 grid gap-2 sm:grid-cols-5">
-        <Metric label="Sent" value={progress.sent} tone="text-emerald-300" />
-        <Metric label="Failed" value={progress.failed} tone="text-rose-300" />
-        <Metric label="Skipped" value={progress.skipped} tone="text-amber-300" />
-        <Metric label="Remaining" value={Math.max(0, progress.total - complete)} tone="text-zinc-200" />
-        <Metric label="Status" value={progress.status} tone="text-zinc-200" />
+
+      {/* Stat cards */}
+      <div className="mb-5 grid gap-3 sm:grid-cols-5">
+        <StatCard label="Sent" value={progress.sent} tone="emerald" />
+        <StatCard label="Failed" value={progress.failed} tone="rose" />
+        <StatCard label="Skipped" value={progress.skipped} tone="amber" />
+        <StatCard label="Remaining" value={Math.max(0, progress.total - complete)} tone="neutral" />
+        <StatCard label="Status" value={progress.status} tone="neutral" />
       </div>
-      <p className="mb-3 text-sm text-zinc-400">Currently sending to: <span className="mono text-zinc-100">{progress.current?.number || "none"}</span> {progress.current?.name || ""}</p>
-      <div className="max-h-72 overflow-auto border border-zinc-800 bg-black">
+
+      {/* Current target */}
+      <p className="mb-3 text-[13px] text-neutral-500 dark:text-zinc-400">
+        Sending to:{" "}
+        <span className="mono font-medium text-neutral-800 dark:text-zinc-200">
+          {progress.current?.number || "—"}
+        </span>{" "}
+        {progress.current?.name || ""}
+      </p>
+
+      {/* Log */}
+      <div className="max-h-72 overflow-auto rounded-xl border border-neutral-200/80 bg-neutral-50 dark:border-zinc-800 dark:bg-zinc-900/50">
         {(progress.log || []).map((entry, index) => (
-          <div key={index} className="grid grid-cols-[120px_1fr] gap-3 border-b border-zinc-900 px-3 py-2 text-sm last:border-0">
-            <span className={`mono font-bold ${entry.status === "sent" ? "text-emerald-300" : entry.status === "failed" ? "text-rose-300" : "text-amber-300"}`}>{entry.status}</span>
-            <span className="text-zinc-300"><span className="mono text-zinc-500">{entry.number}</span> {entry.message}</span>
+          <div
+            key={index}
+            className="grid grid-cols-[100px_1fr] gap-3 border-b border-neutral-100 px-4 py-2.5 text-[13px] last:border-0 dark:border-zinc-800/60"
+          >
+            <span className={`mono font-semibold ${
+              entry.status === "sent" ? "text-emerald-500" :
+              entry.status === "failed" ? "text-rose-500" :
+              "text-amber-500"
+            }`}>
+              {entry.status}
+            </span>
+            <span className="text-neutral-600 dark:text-zinc-300">
+              <span className="mono text-neutral-400 dark:text-zinc-500">{entry.number}</span>{" "}
+              {entry.message}
+            </span>
           </div>
         ))}
       </div>
     </Section>
-  );
-}
-
-function Metric({ label, value, tone }) {
-  return (
-    <div className="border border-zinc-800 bg-zinc-950 p-3">
-      <p className="text-xs uppercase text-zinc-500">{label}</p>
-      <p className={`mono truncate text-lg font-black ${tone}`}>{value}</p>
-    </div>
   );
 }

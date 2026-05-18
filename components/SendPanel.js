@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { Loader2, Rocket, Send } from "lucide-react";
+import { campaignName } from "@/lib/dateFormat";
 import { useCampaignSettings } from "@/lib/settings";
-import { Button, Section } from "./ui";
+import { Button, Section, StatCard } from "./ui";
 
 export default function SendPanel({ connected, recipients, message, images, onStarted }) {
   const [confirming, setConfirming] = useState(false);
@@ -11,7 +12,9 @@ export default function SendPanel({ connected, recipients, message, images, onSt
   const [error, setError] = useState("");
   const { settings } = useCampaignSettings();
 
-  const estimatedMinutes = Math.ceil((recipients.length * ((Number(settings.minDelaySeconds) + Number(settings.maxDelaySeconds)) / 2)) / 60);
+  const estimatedMinutes = Math.ceil(
+    (recipients.length * ((Number(settings.minDelaySeconds) + Number(settings.maxDelaySeconds)) / 2)) / 60
+  );
   const disabled = !connected || !recipients.length || (!message.trim() && !images.length);
 
   async function start() {
@@ -22,7 +25,7 @@ export default function SendPanel({ connected, recipients, message, images, onSt
       const form = new FormData();
       form.append("recipients", JSON.stringify(recipients));
       form.append("message", message);
-      form.append("name", `Campaign ${new Date().toLocaleString()}`);
+      form.append("name", campaignName());
       form.append("options", JSON.stringify({
         minDelayMs: Number(settings.minDelaySeconds) * 1000,
         maxDelayMs: Number(settings.maxDelaySeconds) * 1000,
@@ -33,10 +36,7 @@ export default function SendPanel({ connected, recipients, message, images, onSt
 
       const response = await fetch("/api/send", { method: "POST", body: form });
       const data = await response.json();
-      if (!response.ok) {
-        setError(data.error || "Campaign could not start");
-        return;
-      }
+      if (!response.ok) { setError(data.error || "Campaign could not start"); return; }
       setConfirming(false);
       onStarted?.(data.campaignId);
     } catch (requestError) {
@@ -47,43 +47,67 @@ export default function SendPanel({ connected, recipients, message, images, onSt
   }
 
   return (
-    <Section title="Campaign" eyebrow="Ready to send" icon={Rocket}>
-      <Button className="h-12 w-full text-base" disabled={disabled} onClick={() => setConfirming(true)}>
-        <Send size={18} /> Start Campaign
-      </Button>
-      {error ? <p className="mt-3 text-sm font-bold text-rose-300">{error}</p> : null}
+    <>
+      <Section title="Launch Campaign" eyebrow="Ready to send" icon={Rocket}>
+        {!connected && (
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+            WhatsApp is not connected. Go to Settings to connect your device.
+          </div>
+        )}
 
-      {confirming ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="control-card w-full max-w-lg rounded-lg p-5">
-            <h3 className="text-xl font-black">Confirm campaign</h3>
-            <p className="mt-3 leading-7 text-zinc-300">
-              You are about to send to <span className="mono font-black text-zinc-50">{recipients.length}</span> recipients.
-              Estimated time is about <span className="mono font-black text-zinc-50">{estimatedMinutes}</span> minutes.
+        <Button
+          className="h-12 w-full text-[15px]"
+          disabled={disabled}
+          onClick={() => setConfirming(true)}
+        >
+          <Send size={17} /> Start Campaign
+        </Button>
+
+        {error && (
+          <p className="mt-3 text-[13px] font-medium text-rose-500 dark:text-rose-400">{error}</p>
+        )}
+      </Section>
+
+      {confirming && (
+        <div className="fixed inset-0 z-300 flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm">
+          <div className="my-auto max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-neutral-200/60 bg-white p-6 shadow-2xl dark:border-zinc-700 dark:bg-zinc-900">
+            <h3 className="text-[18px] font-semibold tracking-tight text-neutral-900 dark:text-zinc-50">
+              Confirm Campaign
+            </h3>
+            <p className="mt-2 text-[14px] leading-6 text-neutral-500 dark:text-zinc-400">
+              Sending to{" "}
+              <span className="mono font-semibold text-neutral-900 dark:text-zinc-100">{recipients.length}</span>{" "}
+              recipients. Estimated time:{" "}
+              <span className="mono font-semibold text-neutral-900 dark:text-zinc-100">~{estimatedMinutes} min</span>.
             </p>
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <div className="border border-zinc-800 bg-zinc-950 p-3">
-                <p className="text-xs uppercase text-zinc-500">Attachments</p>
-                <p className="mono text-lg font-black text-emerald-300">{images.length}</p>
-              </div>
-              <div className="border border-zinc-800 bg-zinc-950 p-3">
-                <p className="text-xs uppercase text-zinc-500">Storage</p>
-                <p className={`mono text-lg font-black ${settings.saveAttachmentsToHistory ? "text-emerald-300" : "text-zinc-400"}`}>
-                  {settings.saveAttachmentsToHistory ? "save to history" : "send direct only"}
-                </p>
-              </div>
+
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <StatCard label="Attachments" value={images.length} />
+              <StatCard
+                label="Storage"
+                value={settings.saveAttachmentsToHistory ? "Saved to history" : "Direct only"}
+                tone={settings.saveAttachmentsToHistory ? "emerald" : "neutral"}
+              />
             </div>
-            {error ? <p className="mt-3 border border-rose-500/30 bg-rose-500/10 p-3 text-sm font-bold text-rose-200">{error}</p> : null}
-            <div className="mt-5 flex justify-end gap-3">
-              <Button variant="ghost" disabled={starting} onClick={() => setConfirming(false)}>Cancel</Button>
+
+            {error && (
+              <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
+                {error}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" disabled={starting} onClick={() => setConfirming(false)}>
+                Cancel
+              </Button>
               <Button disabled={starting} onClick={start}>
-                {starting ? <Loader2 className="animate-spin" size={16} /> : null}
-                {starting ? "Starting..." : "Continue"}
+                {starting && <Loader2 className="animate-spin" size={15} />}
+                {starting ? "Starting…" : "Launch"}
               </Button>
             </div>
           </div>
         </div>
-      ) : null}
-    </Section>
+      )}
+    </>
   );
 }

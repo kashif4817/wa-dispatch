@@ -1,6 +1,7 @@
 import { getSupabase, hasSupabaseConfig } from "@/lib/supabase";
 import { startCampaign } from "@/lib/sender";
 import { ensureConnected, getSocket } from "@/lib/whatsapp";
+import { campaignName } from "@/lib/dateFormat";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function POST(request) {
     const recipients = JSON.parse(form.get("recipients") || "[]");
     const message = String(form.get("message") || "");
     const options = JSON.parse(form.get("options") || "{}");
-    const name = String(form.get("name") || `Campaign ${new Date().toLocaleString()}`);
+    const name = String(form.get("name") || campaignName());
     const saveAttachmentsToHistory = options.saveAttachmentsToHistory === true;
     const files = [...form.getAll("images"), ...form.getAll("images[]")]
       .filter((file) => file && typeof file.arrayBuffer === "function" && file.size > 0);

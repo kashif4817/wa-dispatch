@@ -24,9 +24,7 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
     setDuplicates(duplicates);
   }, [paste, defaultCountryCode, setRecipients, tab]);
 
-  useEffect(() => {
-    loadLists();
-  }, []);
+  useEffect(() => { loadLists(); }, []);
 
   async function loadLists() {
     if (!hasSupabaseConfig()) return;
@@ -45,7 +43,6 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
       setDuplicates(duplicates);
       return;
     }
-
     const form = new FormData();
     form.append("file", file);
     form.append("format", "csv");
@@ -79,41 +76,99 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
       title="Recipients"
       eyebrow="Paste, CSV, JSON, or saved lists"
       icon={ClipboardList}
-      aside={<p className="mono text-sm text-zinc-400">{recipients.length} valid · {invalid.length} invalid</p>}
-    >
-      <div className="mb-4 flex flex-wrap gap-2">
-        {["paste", "csv", "json"].map((item) => (
-          <button key={item} onClick={() => setTab(item)} className={`h-9 border px-4 text-sm font-bold capitalize ${tab === item ? "border-emerald-500/70 bg-emerald-500/10 text-emerald-200" : "border-zinc-800 bg-zinc-950 text-zinc-400"}`}>
-            {item}
-          </button>
-        ))}
-      </div>
-
-      {tab === "paste" ? (
-        <textarea value={paste} onChange={(event) => setPaste(event.target.value)} rows={7} className="field p-4 mono text-sm" placeholder="923001234567&#10;03001234567&#10;923001112222" />
-      ) : (
-        <label className="flex min-h-36 cursor-pointer flex-col items-center justify-center border border-dashed border-zinc-700 bg-zinc-950 p-5 text-center hover:border-emerald-500/60">
-          <Upload className="mb-3 text-emerald-300" size={26} />
-          <span className="font-bold">Upload {tab.toUpperCase()}</span>
-          <span className="text-sm text-zinc-500">{tab === "csv" ? "Required column: number. Optional: name." : "[{\"number\":\"...\",\"name\":\"...\"}] or [\"...\"]"}</span>
-          <input hidden type="file" accept={tab === "csv" ? ".csv,text/csv" : ".json,application/json"} onChange={(event) => parseFile(event.target.files?.[0], tab)} />
-        </label>
-      )}
-
-      <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_360px]">
-        <div className="grid gap-2 text-sm sm:grid-cols-3">
-          <Metric label="Valid" value={recipients.length} tone="emerald" />
-          <Metric label="Invalid" value={invalid.length} tone="rose" />
-          <Metric label="Duplicates removed" value={duplicates.length} tone="amber" />
+      aside={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <HeaderStat label="Valid" value={recipients.length} tone="emerald" />
+          <HeaderStat label="Invalid" value={invalid.length} tone="rose" />
+          <HeaderStat label="Duplicates removed" value={duplicates.length} tone="amber" />
         </div>
-        <div className="grid gap-2">
-          <select className="field h-10 px-3" onChange={(event) => loadList(event.target.value)} defaultValue="">
-            <option value="">Load saved list</option>
-            {lists.map((list) => <option key={list.id} value={list.id}>{list.name} ({list.recipients?.length || 0})</option>)}
-          </select>
-          <div className="flex gap-2">
-            <input className="field h-10 px-3" value={listName} onChange={(event) => setListName(event.target.value)} placeholder="List name" />
-            <Button variant="neutral" onClick={saveList}><Save size={16} /></Button>
+      }
+    >
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <div>
+          <div className="mb-4 flex gap-1.5">
+            {["paste", "csv", "json"].map((item) => (
+              <button
+                key={item}
+                onClick={() => setTab(item)}
+                className={`h-8 rounded-lg px-4 text-[13px] font-medium capitalize transition-all duration-200 ${
+                  tab === item
+                    ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
+                    : "border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                }`}
+              >
+                {item.toUpperCase()}
+              </button>
+            ))}
+          </div>
+
+          {tab === "paste" ? (
+            <>
+              <textarea
+                value={paste}
+                onChange={(event) => setPaste(event.target.value)}
+                rows={6}
+                className="field mono min-h-56 resize-y p-4 text-[13px] leading-6"
+                placeholder={"923001234567\n03001234567\n923001112222"}
+              />
+              <p className="mt-2 text-[12px] text-neutral-400 dark:text-zinc-500">
+                Paste one recipient per line. Names are optional when separated by comma.
+              </p>
+            </>
+          ) : (
+            <label className="flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 text-center transition hover:border-emerald-400 hover:bg-emerald-50/50 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/5">
+              <Upload className="mb-2 text-emerald-500" size={22} />
+              <span className="text-[13px] font-medium text-neutral-700 dark:text-zinc-300">Upload {tab.toUpperCase()}</span>
+              <span className="mt-0.5 text-[11px] text-neutral-400 dark:text-zinc-500">
+                {tab === "csv" ? "Required column: number. Optional: name." : '[{"number":"...","name":"..."}] or ["..."]'}
+              </span>
+              <input
+                hidden
+                type="file"
+                accept={tab === "csv" ? ".csv,text/csv" : ".json,application/json"}
+                onChange={(event) => parseFile(event.target.files?.[0], tab)}
+              />
+            </label>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-4 pt-12">
+          <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-center transition hover:border-emerald-400 hover:bg-emerald-50/50 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/5">
+            <Upload className="mb-2 text-emerald-500" size={22} />
+            <span className="text-[13px] font-medium text-neutral-700 dark:text-zinc-300">Upload recipients</span>
+            <span className="mt-0.5 text-[11px] text-neutral-400 dark:text-zinc-500">CSV or JSON contact list</span>
+            <input
+              hidden
+              type="file"
+              accept=".csv,text/csv,.json,application/json"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                parseFile(file, file.name.toLowerCase().endsWith(".json") ? "json" : "csv");
+              }}
+            />
+          </label>
+
+          <div className="flex flex-col gap-2">
+            <select className="field h-10 px-3 text-[13px]" onChange={(event) => loadList(event.target.value)} defaultValue="">
+              <option value="">Load saved list...</option>
+              {lists.map((list) => (
+                <option key={list.id} value={list.id}>
+                  {list.name} ({list.recipients?.length || 0})
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <input
+                className="field h-10 flex-1 px-3 text-[13px]"
+                value={listName}
+                onChange={(event) => setListName(event.target.value)}
+                placeholder="Save as list..."
+              />
+              <Button variant="neutral" size="md" onClick={saveList}>
+                <Save size={14} />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -121,12 +176,17 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
   );
 }
 
-function Metric({ label, value, tone }) {
-  const color = { emerald: "text-emerald-300", rose: "text-rose-300", amber: "text-amber-300" }[tone];
+function HeaderStat({ label, value, tone }) {
+  const colors = {
+    emerald: "text-emerald-600 dark:text-emerald-400",
+    rose: "text-rose-500 dark:text-rose-400",
+    amber: "text-amber-500 dark:text-amber-400",
+  };
+
   return (
-    <div className="border border-zinc-800 bg-zinc-950 p-3">
-      <p className="text-xs uppercase text-zinc-500">{label}</p>
-      <p className={`mono text-xl font-black ${color}`}>{value}</p>
+    <div className="flex min-w-[92px] items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-800/60">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400 dark:text-zinc-500">{label}</span>
+      <span className={`mono text-[13px] font-semibold ${colors[tone]}`}>{value}</span>
     </div>
   );
 }

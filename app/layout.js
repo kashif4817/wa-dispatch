@@ -1,8 +1,9 @@
-import { JetBrains_Mono, Manrope } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -14,12 +15,17 @@ const jetBrains = JetBrains_Mono({
 export const metadata = {
   title: "WhatsApp Bulk Sender",
   description: "Local desktop campaign sender for expected WhatsApp contacts.",
+  icons: {
+    icon: "/whatsapp-icon.svg",
+  },
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${manrope.variable} ${jetBrains.variable}`}>
-      <body>{children}</body>
+    <html lang="en" className={`${inter.variable} ${jetBrains.variable}`} suppressHydrationWarning>
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
+      </body>
     </html>
   );
 }
