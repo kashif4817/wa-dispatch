@@ -18,7 +18,12 @@
 /out/
 
 # production
-/build
+/build/*
+!/build/
+!/build/icon.svg
+!/build/icon.png
+!/build/icon.ico
+!/build/installerHeader.bmp
 
 # misc
 .DS_Store

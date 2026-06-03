@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="WhatsApp Bulk Sender logo">
+  <defs>
+    <linearGradient id="bg" x1="42" y1="22" x2="214" y2="234" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#28e39b"/>
+      <stop offset=".55" stop-color="#08bf73"/>
+      <stop offset="1" stop-color="#087c68"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="58" fill="url(#bg)"/>
+  <path d="M58 199l12-42a78 78 0 1 1 31 30l-43 12Z" fill="none" stroke="#fff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M101 89c3-6 5-7 9-7h7c3 0 5 2 7 5l8 19c2 4 1 8-1 11l-7 8c7 13 18 23 32 30l9-7c3-2 6-3 10-1l19 8c4 2 6 5 6 9v6c0 4-2 8-8 11s-15 5-25 3c-34-5-70-39-77-73-2-10 2-18 11-22Z" fill="#fff"/>
+  <path d="M150 74h44l-48 48 10-31-30 10 24-27Z" fill="#ffffff" opacity=".96"/>
+</svg>

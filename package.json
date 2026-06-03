@@ -1,6 +1,8 @@
 {
   "name": "whatsapp-bulk-sender",
   "version": "0.1.0",
+  "description": "WhatsApp automation desktop app",
+  "author": "Kashif Mehmood",
   "private": true,
   "engines": {
     "node": ">=20"
@@ -46,6 +48,7 @@
       "components/**/*",
       "electron/**/*",
       "lib/**/*",
+      "build/icon.ico",
       "public/**/*",
       "next.config.mjs",
       "package.json",
@@ -57,12 +60,17 @@
       "node_modules/sharp/**/*"
     ],
     "directories": {
+      "buildResources": "build",
       "output": "dist"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": "nsis"
     },
     "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeader": "build/installerHeader.bmp",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     }
