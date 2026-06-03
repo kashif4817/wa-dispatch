@@ -42,6 +42,15 @@ create table if not exists recipient_lists (
   recipients      jsonb not null default '[]'::jsonb
 );
 
+create table if not exists notes (
+  id              uuid primary key default gen_random_uuid(),
+  created_at      timestamptz default now(),
+  updated_at      timestamptz default now(),
+  title           text not null,
+  body            text,
+  campaign_name   text
+);
+
 create table if not exists opt_outs (
   id              uuid primary key default gen_random_uuid(),
   created_at      timestamptz default now(),
@@ -84,6 +93,7 @@ alter table campaigns enable row level security;
 alter table send_logs enable row level security;
 alter table templates enable row level security;
 alter table recipient_lists enable row level security;
+alter table notes enable row level security;
 alter table opt_outs enable row level security;
 alter table pins enable row level security;
 alter table app_settings enable row level security;
@@ -92,6 +102,7 @@ drop policy if exists "open" on campaigns;
 drop policy if exists "open" on send_logs;
 drop policy if exists "open" on templates;
 drop policy if exists "open" on recipient_lists;
+drop policy if exists "open" on notes;
 drop policy if exists "open" on opt_outs;
 drop policy if exists "open" on pins;
 drop policy if exists "open" on app_settings;
@@ -100,6 +111,7 @@ create policy "open" on campaigns for all using (true) with check (true);
 create policy "open" on send_logs for all using (true) with check (true);
 create policy "open" on templates for all using (true) with check (true);
 create policy "open" on recipient_lists for all using (true) with check (true);
+create policy "open" on notes for all using (true) with check (true);
 create policy "open" on opt_outs for all using (true) with check (true);
 create policy "open" on pins for all using (true) with check (true);
 create policy "open" on app_settings for all using (true) with check (true);

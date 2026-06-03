@@ -6,11 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   History,
+  Images,
   LayoutDashboard,
   ListChecks,
   Lock,
   MessageSquareText,
   Moon,
+  RadioTower,
+  StickyNote,
   SendHorizonal,
   Settings,
   Sun,
@@ -20,8 +23,11 @@ import { useTheme } from "./ThemeProvider";
 const links = [
   { href: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard  },
   { href: "/campaign/new", label: "New Campaign", icon: SendHorizonal    },
+  { href: "/progress",     label: "Live Progress", icon: RadioTower      },
   { href: "/history",      label: "History",      icon: History          },
   { href: "/templates",    label: "Templates",    icon: MessageSquareText },
+  { href: "/ads",          label: "Ads",          icon: Images           },
+  { href: "/notes",        label: "Notes",        icon: StickyNote       },
   { href: "/lists",        label: "Lists",        icon: ListChecks       },
   { href: "/settings",     label: "Settings",     icon: Settings         },
 ];

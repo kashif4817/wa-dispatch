@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { File, FileArchive, FileImage, FileText, FileVideo, Save, Trash2, Upload } from "lucide-react";
-import { getSupabase, hasSupabaseConfig } from "@/lib/supabase";
+import Link from "next/link";
+import { File, FileArchive, FileImage, FileText, FileVideo, Images, Save, Trash2, Upload } from "lucide-react";
+import { getPublicUrl, getSupabase, hasSupabaseConfig } from "@/lib/supabase";
 import { Button, Section } from "./ui";
 
 const ACCEPTED_ATTACHMENTS = [
@@ -11,17 +12,30 @@ const ACCEPTED_ATTACHMENTS = [
   ".csv", ".txt", ".zip", ".rar",
 ].join(",");
 
-export default function MessageComposer({ message, setMessage, images, setImages }) {
+export default function MessageComposer({ message, setMessage, images, setImages, selectedImagePaths = [], setSelectedImagePaths }) {
   const inputRef = useRef(null);
   const [templates, setTemplates] = useState([]);
+  const [ads, setAds] = useState([]);
   const [templateName, setTemplateName] = useState("");
 
-  useEffect(() => { loadTemplates(); }, []);
+  useEffect(() => {
+    loadTemplates();
+    loadAds();
+  }, []);
 
   async function loadTemplates() {
     if (!hasSupabaseConfig()) return;
     const { data } = await getSupabase().from("templates").select("*").order("created_at", { ascending: false });
     setTemplates(data || []);
+  }
+
+  async function loadAds() {
+    if (!hasSupabaseConfig()) return;
+    const { data } = await getSupabase().storage.from("campaign-images").list("ads", {
+      limit: 100,
+      sortBy: { column: "created_at", order: "desc" },
+    });
+    setAds((data || []).filter((item) => item.name && !item.name.endsWith("/")));
   }
 
   function addFiles(files) {
@@ -40,6 +54,11 @@ export default function MessageComposer({ message, setMessage, images, setImages
     if (template) setMessage(template.message_text || "");
   }
 
+  function addAd(path) {
+    if (!path || !setSelectedImagePaths) return;
+    setSelectedImagePaths((current) => current.includes(path) ? current : [...current, path]);
+  }
+
   return (
     <Section title="Compose Message" eyebrow="Text, variants, and attachments" icon={FileImage}>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -47,14 +66,10 @@ export default function MessageComposer({ message, setMessage, images, setImages
           <textarea
             value={message}
             onChange={(event) => setMessage(event.target.value)}
-            rows={9}
-            className="field resize-y p-4 text-[14px] leading-7"
-            placeholder="Write the message. Use {name} and {hi|hello|hey} variants."
+            rows={13}
+            className="field min-h-[420px] resize-y p-4 text-[14px] leading-7"
+            placeholder="Write your campaign message here..."
           />
-          <p className="mt-2 text-[12px] text-neutral-400 dark:text-zinc-500">
-            Use <span className="mono text-neutral-600 dark:text-zinc-300">{"{name}"}</span> for personalization and{" "}
-            <span className="mono text-neutral-600 dark:text-zinc-300">{"{hi|hello|hey}"}</span> for random variants.
-          </p>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -90,6 +105,23 @@ export default function MessageComposer({ message, setMessage, images, setImages
             </div>
           )}
 
+          {selectedImagePaths.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {selectedImagePaths.map((path) => (
+                <div key={path} className="relative aspect-square overflow-hidden rounded-lg border border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                  <SavedAttachmentPreview path={path} />
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImagePaths?.((cur) => cur.filter((item) => item !== path))}
+                    className="absolute right-1 top-1 rounded-md bg-black/60 p-1 text-white hover:bg-black/80"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Template controls */}
           <div className="flex flex-col gap-2">
             <select
@@ -112,9 +144,49 @@ export default function MessageComposer({ message, setMessage, images, setImages
               </Button>
             </div>
           </div>
+
+          <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3 dark:border-zinc-800">
+            <select
+              className="field h-10 px-3 text-[13px]"
+              onChange={(e) => { addAd(e.target.value); e.target.value = ""; }}
+              defaultValue=""
+            >
+              <option value="">Load saved ad...</option>
+              {ads.map((ad) => {
+                const path = `ads/${ad.name}`;
+                return <option key={path} value={path}>{ad.name}</option>;
+              })}
+            </select>
+            <Link
+              href="/ads"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 text-[14px] font-medium text-neutral-700 transition-all duration-200 hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
+            >
+              <Images size={14} /> Manage Ads
+            </Link>
+          </div>
         </div>
       </div>
     </Section>
+  );
+}
+
+function SavedAttachmentPreview({ path }) {
+  const name = path.split("/").pop() || "attachment";
+  const url = getPublicUrl("campaign-images", path);
+  if (/\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(name)) {
+    return <img src={url} alt="" className="h-full w-full object-cover" />;
+  }
+  const Icon = /\.(mp4|mov|webm|mkv)$/i.test(name) ? FileVideo
+    : /\.(zip|rar)$/i.test(name) ? FileArchive
+    : /\.(pdf|docx?|xlsx?|pptx?|csv|txt)$/i.test(name) ? FileText
+    : File;
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center p-2 text-center">
+      <Icon className="mb-1 text-emerald-500" size={22} />
+      <span className="line-clamp-2 break-all text-[10px] font-medium text-neutral-600 dark:text-zinc-300">{name}</span>
+      <span className="mt-0.5 text-[9px] text-emerald-500">Saved ad</span>
+    </div>
   );
 }
 

@@ -6,7 +6,7 @@ import { campaignName } from "@/lib/dateFormat";
 import { useCampaignSettings } from "@/lib/settings";
 import { Button, Section, StatCard } from "./ui";
 
-export default function SendPanel({ connected, recipients, message, images, onStarted }) {
+export default function SendPanel({ connected, recipients, message, images, selectedImagePaths = [], onStarted }) {
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
@@ -15,7 +15,8 @@ export default function SendPanel({ connected, recipients, message, images, onSt
   const estimatedMinutes = Math.ceil(
     (recipients.length * ((Number(settings.minDelaySeconds) + Number(settings.maxDelaySeconds)) / 2)) / 60
   );
-  const disabled = !connected || !recipients.length || (!message.trim() && !images.length);
+  const attachmentCount = images.length + selectedImagePaths.length;
+  const disabled = !connected || !recipients.length || (!message.trim() && attachmentCount === 0);
 
   async function start() {
     if (starting) return;
@@ -32,6 +33,7 @@ export default function SendPanel({ connected, recipients, message, images, onSt
         defaultCountryCode: settings.defaultCountryCode,
         saveAttachmentsToHistory: settings.saveAttachmentsToHistory,
       }));
+      form.append("imagePaths", JSON.stringify(selectedImagePaths));
       images.forEach((file) => form.append("images[]", file, file.name));
 
       const response = await fetch("/api/send", { method: "POST", body: form });
@@ -82,7 +84,7 @@ export default function SendPanel({ connected, recipients, message, images, onSt
             </p>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              <StatCard label="Attachments" value={images.length} />
+              <StatCard label="Attachments" value={attachmentCount} />
               <StatCard
                 label="Storage"
                 value={settings.saveAttachmentsToHistory ? "Saved to history" : "Direct only"}

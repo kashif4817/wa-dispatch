@@ -21,14 +21,15 @@ export async function POST(request) {
     const message = String(form.get("message") || "");
     const options = JSON.parse(form.get("options") || "{}");
     const name = String(form.get("name") || campaignName());
-    const saveAttachmentsToHistory = options.saveAttachmentsToHistory === true;
+    const imagePaths = JSON.parse(form.get("imagePaths") || "[]");
+    const saveAttachmentsToHistory = options.saveAttachmentsToHistory !== false;
     const files = [...form.getAll("images"), ...form.getAll("images[]")]
       .filter((file) => file && typeof file.arrayBuffer === "function" && file.size > 0);
 
     if (!recipients.length) {
       return Response.json({ error: "Add at least one recipient" }, { status: 400 });
     }
-    if (!message.trim() && files.length === 0) {
+    if (!message.trim() && files.length === 0 && imagePaths.length === 0) {
       return Response.json({ error: "Add a message or at least one image" }, { status: 400 });
     }
 
@@ -48,7 +49,22 @@ export async function POST(request) {
     if (insertError) throw insertError;
 
     const attachments = [];
-    const imagePaths = [];
+    const savedImagePaths = [];
+
+    for (const path of imagePaths) {
+      const { data: blob, error: downloadError } = await supabase.storage
+        .from("campaign-images")
+        .download(path);
+      if (downloadError) throw downloadError;
+      const name = String(path).split("/").pop() || "attachment";
+      attachments.push({
+        buffer: Buffer.from(await blob.arrayBuffer()),
+        type: blob.type || "application/octet-stream",
+        name,
+        path,
+      });
+      savedImagePaths.push(path);
+    }
 
     for (const file of files) {
       const buffer = Buffer.from(await file.arrayBuffer());
@@ -62,14 +78,14 @@ export async function POST(request) {
           .upload(path, buffer, { contentType: file.type, upsert: false });
 
         if (uploadError) throw uploadError;
-        imagePaths.push(path);
+        savedImagePaths.push(path);
       }
 
       attachments.push({ buffer, type: file.type || "application/octet-stream", name: file.name, path });
     }
 
-    if (imagePaths.length) {
-      await supabase.from("campaigns").update({ image_paths: imagePaths }).eq("id", campaign.id);
+    if (savedImagePaths.length) {
+      await supabase.from("campaigns").update({ image_paths: savedImagePaths }).eq("id", campaign.id);
     }
 
     startCampaign({

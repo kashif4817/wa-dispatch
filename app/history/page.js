@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, History, Plus, RefreshCw, Search, Send, XCircle } from "lucide-react";
+import { CalendarClock, History, Plus, RefreshCw, RotateCcw, Search, Send, XCircle } from "lucide-react";
 import Shell from "@/components/Shell";
 import { formatDateTime, normalizeDateText } from "@/lib/dateFormat";
 import { getSupabase, hasSupabaseConfig } from "@/lib/supabase";
@@ -90,6 +90,12 @@ export default function HistoryPage() {
           >
             <RefreshCw size={13} /> Refresh
           </button>
+          <Link
+            href="/history/failed"
+            className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] font-medium text-amber-700 transition hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
+          >
+            <RotateCcw size={13} /> Failed Retry
+          </Link>
           <div className="ml-2 flex flex-1 items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 dark:border-zinc-700 dark:bg-zinc-800">
             <Search size={14} className="shrink-0 text-neutral-400" />
             <input

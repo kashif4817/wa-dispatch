@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ClipboardList, Save, Upload } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { ClipboardList, RefreshCw, Save, ShieldCheck, Upload, X } from "lucide-react";
 import { dedupeRecipients, parseJsonText, parsePasteInput, validateRecipients } from "@/lib/parsers";
 import { getSupabase, hasSupabaseConfig } from "@/lib/supabase";
 import { Button, Section } from "./ui";
@@ -11,6 +11,8 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
   const [paste, setPaste] = useState("");
   const [invalid, setInvalid] = useState([]);
   const [duplicates, setDuplicates] = useState([]);
+  const [alreadySent, setAlreadySent] = useState([]);
+  const [checkingSent, setCheckingSent] = useState(false);
   const [lists, setLists] = useState([]);
   const [listName, setListName] = useState("");
 
@@ -62,13 +64,49 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
     loadLists();
   }
 
+  const detectAlreadySent = useCallback(async () => {
+    if (!hasSupabaseConfig() || recipients.length === 0) {
+      setAlreadySent([]);
+      return;
+    }
+    setCheckingSent(true);
+    try {
+      const numbers = [...new Set(recipients.map((recipient) => recipient.number).filter(Boolean))];
+      const { data } = await getSupabase()
+        .from("send_logs")
+        .select("number,sent_at,campaign_id")
+        .in("number", numbers)
+        .eq("status", "sent")
+        .order("sent_at", { ascending: false });
+      const seen = new Map();
+      for (const log of data || []) {
+        if (!seen.has(log.number)) seen.set(log.number, log);
+      }
+      setAlreadySent([...seen.values()]);
+    } finally {
+      setCheckingSent(false);
+    }
+  }, [recipients]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => { detectAlreadySent(); }, 350);
+    return () => clearTimeout(timer);
+  }, [detectAlreadySent]);
+
+  function removeAlreadySent(number = null) {
+    const sentNumbers = new Set(number ? [number] : alreadySent.map((log) => log.number));
+    const next = recipients.filter((recipient) => !sentNumbers.has(recipient.number));
+    setRecipients(next);
+    setPaste(next.map((item) => item.name ? `${item.name}, ${item.number}` : item.number).join("\n"));
+  }
+
   function loadList(id) {
     const list = lists.find((item) => item.id === id);
     if (!list) return;
     setRecipients(list.recipients || []);
     setInvalid([]);
     setDuplicates([]);
-    setPaste((list.recipients || []).map((item) => item.number).join("\n"));
+    setPaste((list.recipients || []).map((item) => item.name ? `${item.name}, ${item.number}` : item.number).join("\n"));
   }
 
   return (
@@ -81,6 +119,7 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
           <HeaderStat label="Valid" value={recipients.length} tone="emerald" />
           <HeaderStat label="Invalid" value={invalid.length} tone="rose" />
           <HeaderStat label="Duplicates removed" value={duplicates.length} tone="amber" />
+          <HeaderStat label="Already sent" value={alreadySent.length} tone={alreadySent.length ? "rose" : "neutral"} />
         </div>
       }
     >
@@ -114,6 +153,34 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
               <p className="mt-2 text-[12px] text-neutral-400 dark:text-zinc-500">
                 Paste one recipient per line. Names are optional when separated by comma.
               </p>
+              {alreadySent.length > 0 && (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-[12px] font-medium text-amber-700 dark:text-amber-300">
+                      <ShieldCheck size={14} />
+                      {alreadySent.length} number{alreadySent.length === 1 ? "" : "s"} already received a campaign.
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="neutral" size="sm" onClick={detectAlreadySent} disabled={checkingSent}>
+                        <RefreshCw size={13} /> Check
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={() => removeAlreadySent()}>
+                        <X size={13} /> Remove all
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex max-h-28 flex-col gap-1 overflow-auto">
+                    {alreadySent.slice(0, 8).map((log) => (
+                      <div key={`${log.number}-${log.sent_at}`} className="flex items-center justify-between gap-3 rounded-lg bg-white/70 px-2.5 py-1.5 text-[12px] dark:bg-zinc-900/60">
+                        <span className="mono text-neutral-700 dark:text-zinc-300">{log.number}</span>
+                        <button type="button" onClick={() => removeAlreadySent(log.number)} className="rounded-md p-1 text-rose-500 transition hover:bg-rose-500/10">
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <label className="flex min-h-56 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5 text-center transition hover:border-emerald-400 hover:bg-emerald-50/50 dark:border-zinc-700 dark:bg-zinc-800/40 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-500/5">
@@ -181,6 +248,7 @@ function HeaderStat({ label, value, tone }) {
     emerald: "text-emerald-600 dark:text-emerald-400",
     rose: "text-rose-500 dark:text-rose-400",
     amber: "text-amber-500 dark:text-amber-400",
+    neutral: "text-neutral-600 dark:text-zinc-300",
   };
 
   return (

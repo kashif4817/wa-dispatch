@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, RadioTower } from "lucide-react";
 import Shell from "@/components/Shell";
 import MessageComposer from "@/components/MessageComposer";
 import RecipientsInput from "@/components/RecipientsInput";
@@ -15,6 +15,7 @@ export default function NewCampaignPage() {
   const router = useRouter();
   const [message, setMessage]       = useState("");
   const [images, setImages]         = useState([]);
+  const [selectedImagePaths, setSelectedImagePaths] = useState([]);
   const [recipients, setRecipients] = useState([]);
   const [running, setRunning]       = useState(false);
   const [connected, setConnected]   = useState(false);
@@ -48,6 +49,12 @@ export default function NewCampaignPage() {
           >
             <LayoutDashboard size={13} /> Dashboard
           </Link>
+          <Link
+            href="/progress"
+            className="flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[12px] font-medium text-neutral-600 shadow-sm shadow-neutral-200/40 transition hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:shadow-black/10 dark:hover:bg-zinc-700"
+          >
+            <RadioTower size={13} /> Live Progress
+          </Link>
           <div className="ml-auto flex items-center gap-1.5 text-[12px]">
             <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-rose-500"}`} />
             <span className={connected ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}>
@@ -63,6 +70,8 @@ export default function NewCampaignPage() {
           setMessage={setMessage}
           images={images}
           setImages={setImages}
+          selectedImagePaths={selectedImagePaths}
+          setSelectedImagePaths={setSelectedImagePaths}
         />
         <RecipientsInput
           recipients={recipients}
@@ -77,6 +86,7 @@ export default function NewCampaignPage() {
             recipients={recipients}
             message={message}
             images={images}
+            selectedImagePaths={selectedImagePaths}
             onStarted={() => setRunning(true)}
           />
         )}
