@@ -40,4 +40,6 @@ auth_session/
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
+next-env.d.
+
+/dist
