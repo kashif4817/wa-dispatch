@@ -13,6 +13,7 @@
     "start:next": "next start",
     "electron": "electron .",
     "build": "next build && electron-builder",
+    "build-win": "npm run build:next && electron-builder --win",
     "lint": "eslint"
   },
   "main": "electron/main.js",
