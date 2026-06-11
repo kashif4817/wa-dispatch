@@ -36,7 +36,7 @@ export function Button({ className = "", variant = "primary", size = "md", ...pr
 export function Section({ title, eyebrow, icon: Icon, children, aside, className = "" }) {
   return (
     <div className={[
-      "overflow-hidden rounded-2xl border border-neutral-200/60 bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.04)] backdrop-blur-xl",
+      "overflow-visible rounded-2xl border border-neutral-200/60 bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.04)] backdrop-blur-xl",
       "transition-all duration-300 hover:-translate-y-[1px] hover:shadow-[0_8px_28px_rgba(0,0,0,0.06)]",
       "dark:border-zinc-800/60 dark:bg-zinc-900/80 dark:shadow-[0_4px_20px_rgba(0,0,0,0.25)]",
       className,
@@ -107,6 +107,113 @@ export function StatusDot({ tone = "zinc", pulse = false }) {
   };
   return (
     <span className={`inline-block h-2 w-2 rounded-full ${colors[tone]} ${pulse ? "animate-pulse" : ""}`} />
+  );
+}
+
+export function SkeletonBlock({ className = "" }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`skeleton-shimmer rounded-xl bg-neutral-200/70 dark:bg-zinc-800/80 ${className}`}
+    />
+  );
+}
+
+export function ToolbarSkeleton({ actions = 3, hasSearch = true }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
+      <SkeletonBlock className="h-5 w-24 rounded-lg" />
+      <div className="h-5 w-px bg-neutral-200 dark:bg-zinc-700" />
+      {Array.from({ length: actions }).map((_, index) => (
+        <SkeletonBlock key={index} className="h-9 w-28" />
+      ))}
+      {hasSearch && <SkeletonBlock className="ml-2 h-9 flex-1" />}
+    </div>
+  );
+}
+
+export function CardListSkeleton({ count = 4 }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {Array.from({ length: count }).map((_, index) => (
+        <div
+          key={index}
+          className="rounded-2xl border border-neutral-200/60 bg-white/80 p-5 shadow-sm shadow-neutral-200/40 dark:border-zinc-800/60 dark:bg-zinc-900/80 dark:shadow-black/10"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <SkeletonBlock className="h-4 w-2/5" />
+              <SkeletonBlock className="mt-3 h-3 w-1/4 rounded-lg" />
+              <SkeletonBlock className="mt-4 h-3 w-full rounded-lg" />
+              <SkeletonBlock className="mt-2 h-3 w-4/5 rounded-lg" />
+            </div>
+            <div className="flex gap-2">
+              <SkeletonBlock className="h-8 w-9" />
+              <SkeletonBlock className="h-8 w-9" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function TableSkeleton({ rows = 8, columns = 5 }) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-neutral-100 dark:border-zinc-800">
+      <div className="grid gap-3 border-b border-neutral-100 p-3 dark:border-zinc-800" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+        {Array.from({ length: columns }).map((_, index) => (
+          <SkeletonBlock key={index} className="h-3 rounded-lg" />
+        ))}
+      </div>
+      {Array.from({ length: rows }).map((_, row) => (
+        <div key={row} className="grid gap-3 border-b border-neutral-50 p-3 last:border-0 dark:border-zinc-800/60" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+          {Array.from({ length: columns }).map((_, column) => (
+            <SkeletonBlock key={column} className={`h-4 rounded-lg ${column === 0 ? "w-3/4" : "w-full"}`} />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function PageSkeleton({ title = "Loading", layout = "dashboard" }) {
+  if (layout === "split") {
+    return (
+      <div className="flex h-full flex-col overflow-hidden bg-neutral-100 dark:bg-zinc-950" aria-busy="true" aria-label={title}>
+        <ToolbarSkeleton />
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-[292px] shrink-0 border-r border-neutral-200 bg-neutral-50 p-4 dark:border-zinc-800 dark:bg-zinc-900/70">
+            <CardListSkeleton count={5} />
+          </div>
+          <div className="min-w-0 flex-1 overflow-auto p-5">
+            <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-6">
+              {Array.from({ length: 6 }).map((_, index) => <SkeletonBlock key={index} className="h-24" />)}
+            </div>
+            <SkeletonBlock className="mb-4 h-32" />
+            <TableSkeleton rows={7} columns={4} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-neutral-100 dark:bg-zinc-950" aria-busy="true" aria-label={title}>
+      <ToolbarSkeleton />
+      <div className="flex-1 overflow-auto p-5">
+        <div className="mb-4 grid gap-4 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => <SkeletonBlock key={index} className="h-28" />)}
+        </div>
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.65fr)]">
+          <SkeletonBlock className="h-72" />
+          <SkeletonBlock className="h-72" />
+        </div>
+        <div className="mt-4">
+          <TableSkeleton rows={5} columns={5} />
+        </div>
+      </div>
+    </div>
   );
 }
 

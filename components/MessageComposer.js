@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { File, FileArchive, FileImage, FileText, FileVideo, Images, Save, Trash2, Upload } from "lucide-react";
 import { getPublicUrl, getSupabase, hasSupabaseConfig } from "@/lib/supabase";
@@ -208,8 +208,16 @@ function isSupportedAttachment(file) {
 }
 
 function AttachmentPreview({ file }) {
+  const objectUrl = useMemo(() => (
+    file.type.startsWith("image/") ? URL.createObjectURL(file) : ""
+  ), [file]);
+
+  useEffect(() => () => {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }, [objectUrl]);
+
   if (file.type.startsWith("image/")) {
-    return <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />;
+    return <img src={objectUrl} alt="" className="h-full w-full object-cover" />;
   }
   const Icon = file.type.startsWith("video/") ? FileVideo
     : file.type.includes("zip") || file.name.toLowerCase().endsWith(".rar") ? FileArchive

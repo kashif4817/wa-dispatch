@@ -5,6 +5,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
+  FolderKanban,
+  Send,
+  Search,
   History,
   Images,
   LayoutDashboard,
@@ -12,9 +15,10 @@ import {
   Lock,
   MessageSquareText,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   RadioTower,
   StickyNote,
-  SendHorizonal,
   Settings,
   Sun,
 } from "lucide-react";
@@ -22,7 +26,9 @@ import { useTheme } from "./ThemeProvider";
 
 const links = [
   { href: "/dashboard",    label: "Dashboard",    icon: LayoutDashboard  },
-  { href: "/campaign/new", label: "New Campaign", icon: SendHorizonal    },
+  { href: "/campaign/new",  label: "New Campaign",  icon: Send           },
+  { href: "/campaigns",    label: "Campaigns",    icon: FolderKanban     },
+  { href: "/find-numbers", label: "Find Numbers", icon: Search          },
   { href: "/progress",     label: "Live Progress", icon: RadioTower      },
   { href: "/history",      label: "History",      icon: History          },
   { href: "/templates",    label: "Templates",    icon: MessageSquareText },
@@ -67,13 +73,16 @@ function Tip({ label }) {
 }
 
 /* Single nav / action icon button */
-function NavIcon({ href, label, icon: Icon, active, onClick }) {
+function NavIcon({ href, label, icon: Icon, active, onClick, collapsed }) {
   const base = [
-    "relative group flex h-10 w-10 items-center justify-center rounded-xl",
+    "relative group flex h-10 items-center rounded-xl",
     "transition-all duration-200",
+    collapsed ? "w-10 justify-center" : "w-full justify-start gap-3 px-3",
   ].join(" ");
 
-  const activeStyle = "bg-transparent text-emerald-500 dark:text-emerald-400";
+  const activeStyle = collapsed
+    ? "bg-transparent text-emerald-500 dark:text-emerald-400"
+    : "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400";
   const idleStyle   = [
     "text-neutral-500 hover:bg-neutral-100/80 hover:text-neutral-900",
     "dark:text-zinc-500 dark:hover:bg-zinc-800/70 dark:hover:text-zinc-100",
@@ -82,19 +91,18 @@ function NavIcon({ href, label, icon: Icon, active, onClick }) {
   if (href) {
     return (
       <Link href={href} className={`${base} ${active ? activeStyle : idleStyle}`}>
-        {active && (
-          <span className="absolute -left-2 h-4 w-1 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/30" />
-        )}
-        <Icon size={18} />
-        <Tip label={label} />
+        <Icon size={18} className={`shrink-0 ${href === "/campaign/new" ? "transform rotate-45" : ""}`} />
+        {!collapsed && <span className="truncate text-[13px] font-medium">{label}</span>}
+        {collapsed && <Tip label={label} />}
       </Link>
     );
   }
 
   return (
     <button onClick={onClick} className={`${base} ${idleStyle}`}>
-      <Icon size={18} />
-      <Tip label={label} />
+      <Icon size={18} className="shrink-0" />
+      {!collapsed && <span className="truncate text-[13px] font-medium">{label}</span>}
+      {collapsed && <Tip label={label} />}
     </button>
   );
 }
@@ -105,6 +113,11 @@ export default function Sidebar() {
   const { theme, toggle } = useTheme();
   const [confirmLock, setConfirmLock] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [collapsed, setCollapsed] = useState(() =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("wa_sidebar_collapsed") === "true"
+      : false
+  );
   /* Seed from cache so there's no "Checking…" flash on navigation */
   const [status, setStatus] = useState(() =>
     typeof window !== "undefined"
@@ -134,22 +147,19 @@ export default function Sidebar() {
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem("wa_sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
+
   function lock() {
     localStorage.removeItem("wa_sender_unlocked");
     router.push("/");
   }
 
-  const dotColor =
-    status === "connected"                      ? "bg-emerald-400" :
-    status === "connecting" || status === "qr"  ? "bg-amber-400"  :
-                                                "bg-zinc-400";
-
   const logoBg =
     status === "connected"                      ? "bg-emerald-500 shadow-emerald-500/30" :
     status === "connecting" || status === "qr"  ? "bg-amber-400 shadow-amber-400/30" :
                                                 "bg-rose-500 shadow-rose-500/30";
-
-  const dotPulse = status === "connecting" || status === "qr" || status === "checking";
 
   const lockDialog = confirmLock && (
     <div
@@ -194,40 +204,58 @@ export default function Sidebar() {
       <aside
         className={[
           /* z-30 ensures sidebar always stacks above backdrop-blur cards in main */
-          "relative z-30 flex w-15 shrink-0 flex-col items-center overflow-visible",
+          "relative z-30 flex h-full min-h-0 shrink-0 flex-col overflow-hidden",
+          collapsed ? "w-[68px] items-center" : "w-[184px]",
           "border-r border-neutral-200/60 bg-white/80 backdrop-blur-xl",
           "dark:border-zinc-800/60 dark:bg-zinc-900/80",
-          "py-4 gap-1",
+          "py-4 gap-1 transition-[width] duration-200 ease-out",
         ].join(" ")}
       >
-      {/* Logo + connection dot */}
-      <div className="relative group mb-5">
-        <div className={`flex h-9 w-9 items-center justify-center rounded-xl shadow-lg transition-colors duration-500 ${logoBg}`}>
-          <WhatsAppMark className="h-5 w-5 text-white" />
-        </div>
-        {/* Status dot badge */}
-        <span
+      {/* Logo */}
+      <div className={`relative group mb-5 flex h-10 ${collapsed ? "w-10 justify-center" : "w-full px-3"}`}>
+        <button
+          type="button"
+          onClick={() => setCollapsed((value) => !value)}
           className={[
-            "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full",
-            "border-2 border-white dark:border-zinc-900",
-            dotColor,
-            dotPulse ? "animate-pulse" : "",
+            "relative flex h-10 items-center rounded-xl transition-all duration-200",
+            collapsed ? "w-10 justify-center" : "w-full justify-start gap-3 px-2",
+            "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-950",
+            "dark:text-zinc-300 dark:hover:bg-zinc-800 dark:hover:text-zinc-50",
           ].join(" ")}
-        />
-        <Tip label={
-          status === "connected"    ? "WhatsApp connected" :
-          status === "qr"           ? "Scan QR code"       :
-          status === "connecting"   ? "Connecting…"        :
-          status === "checking"     ? "Checking…"          :
-                                     "Not connected"
-        } />
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <span className={[
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-lg transition-all duration-200",
+            "group-hover:scale-0 group-hover:opacity-0",
+            logoBg,
+          ].join(" ")}>
+            <WhatsAppMark className="h-5 w-5 text-white" />
+          </span>
+          <span className="absolute left-2 flex h-9 w-9 scale-75 items-center justify-center rounded-xl opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:opacity-100">
+            {collapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </span>
+          {!collapsed && (
+            <span className="min-w-0 truncate text-[13px] font-semibold text-neutral-800 dark:text-zinc-100">
+              WA Sender
+            </span>
+          )}
+        </button>
+        {collapsed && (
+          <Tip label={
+            status === "connected"    ? "WhatsApp connected" :
+            status === "qr"           ? "Scan QR code"       :
+            status === "connecting"   ? "Connecting…"        :
+            status === "checking"     ? "Checking…"          :
+                                      "Not connected"
+          } />
+        )}
       </div>
 
       {/* Divider */}
-      <div className="mb-2 h-px w-8 rounded-full bg-neutral-200 dark:bg-zinc-800" />
+      <div className={`${collapsed ? "w-8" : "mx-3 w-auto self-stretch"} mb-2 h-px rounded-full bg-neutral-200 dark:bg-zinc-800`} />
 
       {/* Main nav */}
-      <nav className="flex flex-1 flex-col items-center gap-1 overflow-visible">
+      <nav className={`flex flex-1 min-h-0 flex-col gap-1 overflow-y-auto overflow-x-hidden ${collapsed ? "items-center" : "w-full px-3"}`}>
         {links.map((link) => (
           <NavIcon
             key={link.href}
@@ -235,28 +263,32 @@ export default function Sidebar() {
             label={link.label}
             icon={link.icon}
             active={pathname === link.href || pathname.startsWith(`${link.href}/`)}
+            collapsed={collapsed}
           />
         ))}
       </nav>
 
       {/* Bottom: theme + lock */}
-      <div className="flex flex-col items-center gap-1 overflow-visible border-t border-neutral-100 pt-3 dark:border-zinc-800">
+      <div className={`flex flex-col gap-1 overflow-visible border-t border-neutral-100 pt-3 dark:border-zinc-800 ${collapsed ? "items-center" : "mx-3 self-stretch"}`}>
         <NavIcon
           label={theme === "dark" ? "Light mode" : "Dark mode"}
           icon={theme === "dark" ? Sun : Moon}
           onClick={toggle}
+          collapsed={collapsed}
         />
         <button
           onClick={() => setConfirmLock(true)}
           className={[
-            "relative group flex h-10 w-10 items-center justify-center rounded-xl",
+            "relative group flex h-10 items-center rounded-xl",
+            collapsed ? "w-10 justify-center" : "w-full justify-start gap-3 px-3",
             "text-rose-400 transition-all duration-200",
             "hover:bg-rose-50 hover:text-rose-600",
             "dark:text-rose-500 dark:hover:bg-rose-500/10",
           ].join(" ")}
         >
-          <Lock size={18} />
-          <Tip label="Lock" />
+          <Lock size={18} className="shrink-0" />
+          {!collapsed && <span className="truncate text-[13px] font-medium">Lock</span>}
+          {collapsed && <Tip label="Lock" />}
         </button>
       </div>
 

@@ -1,17 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CirclePause, CirclePlay, CircleStop, RadioTower, RefreshCw } from "lucide-react";
-import { Button, Section, StatCard } from "./ui";
+import { CirclePause, CirclePlay, CircleStop, RadioTower } from "lucide-react";
+import { Button, Section, SkeletonBlock, StatCard, TableSkeleton } from "./ui";
 
 export default function ProgressView({ onDone }) {
   const [progress, setProgress] = useState({ total: 0, sent: 0, failed: 0, skipped: 0, log: [], status: "idle" });
+  const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/progress");
-    const data = await response.json();
-    setProgress(data);
-    if (["done", "cancelled", "error"].includes(data.status)) onDone?.();
+    try {
+      const response = await fetch("/api/progress");
+      const data = await response.json();
+      setProgress(data);
+      if (["done", "cancelled", "error"].includes(data.status)) onDone?.();
+    } finally {
+      setLoading(false);
+    }
   }, [onDone]);
 
   useEffect(() => {
@@ -48,9 +53,6 @@ export default function ProgressView({ onDone }) {
       icon={RadioTower}
       aside={
         <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="neutral" size="sm" onClick={refresh}>
-            <RefreshCw size={14} /> Refresh
-          </Button>
           {paused ? (
             <Button size="sm" onClick={resume}>
               <CirclePlay size={14} /> Resume
@@ -66,6 +68,17 @@ export default function ProgressView({ onDone }) {
         </div>
       }
     >
+      {loading ? (
+        <>
+          <SkeletonBlock className="mb-5 h-2 rounded-full" />
+          <div className="mb-5 grid gap-3 sm:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, index) => <SkeletonBlock key={index} className="h-24" />)}
+          </div>
+          <SkeletonBlock className="mb-3 h-5 w-64 rounded-lg" />
+          <TableSkeleton rows={6} columns={2} />
+        </>
+      ) : (
+      <>
       <div className="mb-5 overflow-hidden rounded-full bg-neutral-100 dark:bg-zinc-800">
         <div
           className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
@@ -116,6 +129,8 @@ export default function ProgressView({ onDone }) {
           </div>
         ))}
       </div>
+      </>
+      )}
     </Section>
   );
 }

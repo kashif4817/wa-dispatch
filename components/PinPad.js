@@ -5,7 +5,33 @@ import { useRouter } from "next/navigation";
 import { Delete, ShieldCheck } from "lucide-react";
 
 const PIN_LENGTH = 4;
+const UNLOCK_KEY = "wa_sender_unlocked";
+const UNLOCK_EXPIRES_KEY = "wa_sender_unlocked_until";
+const UNLOCK_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "back"];
+
+function unlockUntil() {
+  return Date.now() + UNLOCK_DURATION_MS;
+}
+
+function hasValidUnlockSession() {
+  const expiresAt = Number(localStorage.getItem(UNLOCK_EXPIRES_KEY) || 0);
+  if (expiresAt > Date.now()) return true;
+
+  if (localStorage.getItem(UNLOCK_KEY) === "true") {
+    localStorage.setItem(UNLOCK_EXPIRES_KEY, String(unlockUntil()));
+    return true;
+  }
+
+  localStorage.removeItem(UNLOCK_KEY);
+  localStorage.removeItem(UNLOCK_EXPIRES_KEY);
+  return false;
+}
+
+function saveUnlockSession() {
+  localStorage.setItem(UNLOCK_KEY, "true");
+  localStorage.setItem(UNLOCK_EXPIRES_KEY, String(unlockUntil()));
+}
 
 export default function PinPad() {
   const router = useRouter();
@@ -29,7 +55,7 @@ export default function PinPad() {
   }, []);
 
   useEffect(() => {
-    if (localStorage.getItem("wa_sender_unlocked") === "true") router.replace("/dashboard");
+    if (hasValidUnlockSession()) router.replace("/dashboard");
     fetch("/api/pin")
       .then((response) => response.json())
       .then((data) => {
@@ -63,7 +89,7 @@ export default function PinPad() {
   useEffect(() => {
     if (pin.length !== PIN_LENGTH) return;
     if (pin === expectedPin) {
-      localStorage.setItem("wa_sender_unlocked", "true");
+      saveUnlockSession();
       router.push("/dashboard");
     } else {
       setWrong(true);

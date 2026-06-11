@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Menu, nativeImage, shell, utilityProcess } = require("electron");
 const http = require("node:http");
+const net = require("node:net");
 const path = require("node:path");
 
 let mainWindow;
@@ -7,8 +8,8 @@ let nextServer;
 let isQuitting = false;
 
 const isDev = !app.isPackaged;
-const port = Number(process.env.PORT || 3000);
-const appUrl = `http://localhost:${port}`;
+let port = Number(process.env.PORT || 3000);
+let appUrl = `http://localhost:${port}`;
 
 function createAppIcon() {
   return nativeImage.createFromPath(path.join(app.getAppPath(), "build", "icon.ico"));
@@ -41,6 +42,21 @@ function waitForServer(target, timeoutMs = 90000) {
   });
 }
 
+function findAvailablePort(startPort) {
+  return new Promise((resolve) => {
+    const tryPort = (candidate) => {
+      const server = net.createServer();
+      server.unref();
+      server.on("error", () => tryPort(candidate + 1));
+      server.listen(candidate, "127.0.0.1", () => {
+        const selected = server.address().port;
+        server.close(() => resolve(selected));
+      });
+    };
+    tryPort(startPort);
+  });
+}
+
 function startProductionServer() {
   const appPath = app.getAppPath();
   const serverPath = path.join(appPath, "electron", "next-server.js");
@@ -68,6 +84,8 @@ function startProductionServer() {
 
 async function createWindow() {
   if (!isDev && !nextServer) {
+    port = await findAvailablePort(port);
+    appUrl = `http://localhost:${port}`;
     startProductionServer();
     await waitForServer(appUrl);
   }

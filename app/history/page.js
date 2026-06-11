@@ -2,32 +2,33 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, History, Plus, RefreshCw, RotateCcw, Search, Send, XCircle } from "lucide-react";
+import { CalendarClock, History, RotateCcw, Search, Send, XCircle } from "lucide-react";
 import Shell from "@/components/Shell";
-import { formatDateTime, normalizeDateText } from "@/lib/dateFormat";
+import { PageSkeleton, TableSkeleton } from "@/components/ui";
+import {
+  campaignCounts,
+  campaignDisplayTitle,
+  campaignStatus,
+  campaignSubtitle,
+  statusLabel,
+  statusTone,
+} from "@/lib/campaignDisplay";
 import { getSupabase, hasSupabaseConfig } from "@/lib/supabase";
 
-function StatusChip({ campaign }) {
-  const sent = campaign.sent || 0;
-  const failed = campaign.failed || 0;
-  const total = sent + failed;
-  const status =
-    total === 0 ? "pending" :
-    failed === 0 ? "completed" :
-    sent === 0 ? "failed" :
-    "partial";
-
+function StatusChip({ status }) {
+  const tone = statusTone(status);
   const styles = {
-    completed: "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400",
-    failed: "bg-rose-500/15 text-rose-500 dark:text-rose-400",
-    partial: "bg-amber-500/15 text-amber-500 dark:text-amber-400",
-    pending: "bg-neutral-100 text-neutral-500 dark:bg-zinc-800 dark:text-zinc-400",
+    emerald: "bg-emerald-500/15 text-emerald-500 dark:text-emerald-400",
+    rose: "bg-rose-500/15 text-rose-500 dark:text-rose-400",
+    amber: "bg-amber-500/15 text-amber-500 dark:text-amber-400",
+    sky: "bg-sky-500/15 text-sky-500 dark:text-sky-400",
+    neutral: "bg-neutral-100 text-neutral-500 dark:bg-zinc-800 dark:text-zinc-400",
   };
 
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${styles[status]}`}>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${styles[tone]}`}>
       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-      {status.charAt(0).toUpperCase() + status.slice(1)}
+      {statusLabel(status)}
     </span>
   );
 }
@@ -35,27 +36,43 @@ function StatusChip({ campaign }) {
 export default function HistoryPage() {
   const [campaigns, setCampaigns] = useState([]);
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
 
   async function load() {
-    if (!hasSupabaseConfig()) return;
-    const supabase = getSupabase();
-    const { data } = await supabase.from("campaigns").select("*").order("created_at", { ascending: false });
-    const ids = (data || []).map((c) => c.id);
-    if (!ids.length) { setCampaigns([]); return; }
-
-    const { data: failedLogs } = await supabase
-      .from("send_logs")
-      .select("campaign_id,error,sent_at")
-      .in("campaign_id", ids)
-      .eq("status", "failed")
-      .order("sent_at", { ascending: false });
-
-    const reasons = new Map();
-    for (const log of failedLogs || []) {
-      if (!reasons.has(log.campaign_id)) reasons.set(log.campaign_id, log.error || "Failed without a reason");
+    if (!hasSupabaseConfig()) {
+      setLoading(false);
+      return;
     }
+    try {
+      const supabase = getSupabase();
+      const { data } = await supabase.from("campaigns").select("*").order("created_at", { ascending: false });
+      const ids = (data || []).map((c) => c.id);
+      if (!ids.length) { setCampaigns([]); return; }
 
-    setCampaigns((data || []).map((c) => ({ ...c, failureReason: reasons.get(c.id) || "" })));
+      const { data: failedLogs } = await supabase
+        .from("send_logs")
+        .select("campaign_id,error,sent_at")
+        .in("campaign_id", ids)
+        .eq("status", "failed")
+        .order("sent_at", { ascending: false });
+
+      const reasons = new Map();
+      for (const log of failedLogs || []) {
+        if (!reasons.has(log.campaign_id)) reasons.set(log.campaign_id, log.error || "Failed without a reason");
+      }
+
+      const rows = data || [];
+      setCampaigns(rows.map((c, index) => ({
+        ...c,
+        displayTitle: campaignDisplayTitle(c, rows.length - index - 1),
+        subtitle: campaignSubtitle(c),
+        counts: campaignCounts(c),
+        displayStatus: campaignStatus(c),
+        failureReason: reasons.get(c.id) || "",
+      })));
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
@@ -64,32 +81,24 @@ export default function HistoryPage() {
     const query = search.trim().toLowerCase();
     if (!query) return campaigns;
     return campaigns.filter((campaign) =>
-      normalizeDateText(campaign.name || campaign.id).toLowerCase().includes(query) ||
+      campaign.displayTitle.toLowerCase().includes(query) ||
+      campaign.subtitle.toLowerCase().includes(query) ||
       (campaign.failureReason || "").toLowerCase().includes(query)
     );
   }, [campaigns, search]);
 
   const totalSent = campaigns.reduce((sum, campaign) => sum + (campaign.sent || 0), 0);
   const totalFailed = campaigns.reduce((sum, campaign) => sum + (campaign.failed || 0), 0);
+  const totalSkipped = campaigns.reduce((sum, campaign) => sum + (campaign.skipped || 0), 0);
+  const totalPartial = campaigns.filter((campaign) => campaign.displayStatus === "partial").length;
 
   return (
     <Shell noPadding>
+      {loading ? <PageSkeleton title="Loading history" /> : (
       <div className="flex h-full flex-col overflow-hidden">
         <div className="flex items-center gap-2 border-b border-neutral-200/60 bg-white/70 px-4 py-2.5 backdrop-blur-xl dark:border-zinc-800/60 dark:bg-zinc-900/70">
           <span className="mr-1 text-[14px] font-semibold text-neutral-800 dark:text-zinc-100">History</span>
           <div className="mr-1 h-5 w-px bg-neutral-200 dark:bg-zinc-700" />
-          <Link
-            href="/campaign/new"
-            className="flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 py-2 text-[13px] font-semibold text-white shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400"
-          >
-            <Plus size={14} /> New Campaign
-          </Link>
-          <button
-            onClick={load}
-            className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-[12px] font-medium text-neutral-600 transition hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
-          >
-            <RefreshCw size={13} /> Refresh
-          </button>
           <Link
             href="/history/failed"
             className="flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] font-medium text-amber-700 transition hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20"
@@ -107,15 +116,25 @@ export default function HistoryPage() {
           </div>
           <div className="ml-auto flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-[12px]">
-              <Send size={11} className="text-emerald-500" />
-              <span className="mono font-semibold text-emerald-600 dark:text-emerald-400">{totalSent.toLocaleString()}</span>
-              <span className="text-neutral-400 dark:text-zinc-600">sent</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-[12px]">
-              <XCircle size={11} className="text-rose-400" />
-              <span className="mono font-semibold text-rose-500 dark:text-rose-400">{totalFailed.toLocaleString()}</span>
-              <span className="text-neutral-400 dark:text-zinc-600">failed</span>
-            </div>
+            <Send size={11} className="text-emerald-500" />
+            <span className="mono font-semibold text-emerald-600 dark:text-emerald-400">{totalSent.toLocaleString()}</span>
+            <span className="text-neutral-400 dark:text-zinc-600">sent</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px]">
+            <XCircle size={11} className="text-rose-400" />
+            <span className="mono font-semibold text-rose-500 dark:text-rose-400">{totalFailed.toLocaleString()}</span>
+            <span className="text-neutral-400 dark:text-zinc-600">failed</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px]">
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <span className="mono font-semibold text-amber-500 dark:text-amber-400">{totalSkipped.toLocaleString()}</span>
+            <span className="text-neutral-400 dark:text-zinc-600">skipped</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-[12px]">
+            <span className="h-2 w-2 rounded-full bg-sky-400" />
+            <span className="mono font-semibold text-sky-500 dark:text-sky-400">{totalPartial.toLocaleString()}</span>
+            <span className="text-neutral-400 dark:text-zinc-600">partial</span>
+          </div>
           </div>
         </div>
 
@@ -132,6 +151,7 @@ export default function HistoryPage() {
             </div>
 
             <div className="divide-y divide-neutral-100 dark:divide-zinc-800/70">
+              {loading && <TableSkeleton rows={7} columns={6} />}
               {filtered.length === 0 && (
                 <div className="flex h-48 flex-col items-center justify-center gap-2 text-center">
                   <p className="text-[14px] font-semibold text-neutral-700 dark:text-zinc-300">No campaigns found</p>
@@ -143,28 +163,30 @@ export default function HistoryPage() {
                 <Link
                   key={campaign.id}
                   href={`/history/${campaign.id}`}
-                  className="grid grid-cols-[minmax(0,1fr)_110px_110px_190px_110px] items-center gap-4 px-5 py-3.5 text-[12px] transition hover:bg-neutral-50/80 dark:hover:bg-zinc-800/40"
+                  className="grid grid-cols-[minmax(0,1fr)_95px_95px_105px_170px_100px] items-center gap-4 px-5 py-3.5 text-[12px] transition hover:bg-neutral-50/80 dark:hover:bg-zinc-800/40"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-[13px] font-semibold text-neutral-900 dark:text-zinc-100">
-                      {normalizeDateText(campaign.name || campaign.id)}
+                      {campaign.displayTitle}
                     </p>
                     <p className="mt-1 truncate text-[12px] text-neutral-500 dark:text-zinc-500">
-                      {campaign.failureReason || "No recent failure reason"}
+                      {campaign.failureReason || campaign.subtitle}
                     </p>
                   </div>
                   <span className="mono text-emerald-500 dark:text-emerald-400">{(campaign.sent || 0).toLocaleString()} sent</span>
                   <span className="mono text-rose-500 dark:text-rose-400">{(campaign.failed || 0).toLocaleString()} failed</span>
+                  <span className="mono text-amber-500 dark:text-amber-400">{(campaign.skipped || 0).toLocaleString()} skipped</span>
                   <span className="mono flex items-center gap-1.5 whitespace-nowrap text-neutral-400 dark:text-zinc-500">
-                    <CalendarClock size={12} /> {formatDateTime(campaign.created_at)}
+                    <CalendarClock size={12} /> {campaign.subtitle.split(" · ")[0]}
                   </span>
-                  <StatusChip campaign={campaign} />
+                  <StatusChip status={campaign.displayStatus} />
                 </Link>
               ))}
             </div>
           </div>
         </div>
       </div>
+      )}
     </Shell>
   );
 }

@@ -10,6 +10,8 @@ export default function SendPanel({ connected, recipients, message, images, sele
   const [confirming, setConfirming] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
+  const [scheduledFor, setScheduledFor] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
   const { settings } = useCampaignSettings();
 
   const estimatedMinutes = Math.ceil(
@@ -32,6 +34,16 @@ export default function SendPanel({ connected, recipients, message, images, sele
         maxDelayMs: Number(settings.maxDelaySeconds) * 1000,
         defaultCountryCode: settings.defaultCountryCode,
         saveAttachmentsToHistory: settings.saveAttachmentsToHistory,
+        scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : null,
+        quietHoursEnabled: settings.quietHoursEnabled,
+        quietHoursStart: settings.quietHoursStart,
+        quietHoursEnd: settings.quietHoursEnd,
+        dailySendCap: settings.dailySendCap,
+        perCampaignCap: settings.perCampaignCap,
+        cooldownHours: settings.cooldownHours,
+        warmupMode: settings.warmupMode,
+        adaptiveDelayEnabled: settings.adaptiveDelayEnabled,
+        consentConfirmed,
       }));
       form.append("imagePaths", JSON.stringify(selectedImagePaths));
       images.forEach((file) => form.append("images[]", file, file.name));
@@ -92,6 +104,33 @@ export default function SendPanel({ connected, recipients, message, images, sele
               />
             </div>
 
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <label className="text-[12px] font-medium text-neutral-500 dark:text-zinc-400">
+                Schedule
+                <input
+                  type="datetime-local"
+                  value={scheduledFor}
+                  onChange={(event) => setScheduledFor(event.target.value)}
+                  className="field mt-1 h-10 w-full px-3 text-[13px]"
+                />
+              </label>
+              <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-[12px] text-neutral-500 dark:border-zinc-800 dark:bg-zinc-800/50 dark:text-zinc-400">
+                Cap {settings.perCampaignCap} per campaign, {settings.dailySendCap} per day. Cooldown {settings.cooldownHours}h.
+              </div>
+            </div>
+
+            {settings.consentCheckRequired && (
+              <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+                <input
+                  type="checkbox"
+                  checked={consentConfirmed}
+                  onChange={(event) => setConsentConfirmed(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-500"
+                />
+                <span>I confirm these contacts expect this WhatsApp message and DND/opt-out numbers should be skipped.</span>
+              </label>
+            )}
+
             {error && (
               <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] text-rose-600 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">
                 {error}
@@ -102,7 +141,7 @@ export default function SendPanel({ connected, recipients, message, images, sele
               <Button variant="ghost" disabled={starting} onClick={() => setConfirming(false)}>
                 Cancel
               </Button>
-              <Button disabled={starting} onClick={start}>
+              <Button disabled={starting || (settings.consentCheckRequired && !consentConfirmed)} onClick={start}>
                 {starting && <Loader2 className="animate-spin" size={15} />}
                 {starting ? "Starting…" : "Launch"}
               </Button>

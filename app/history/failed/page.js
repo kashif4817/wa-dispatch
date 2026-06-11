@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Loader2, RefreshCw, RotateCcw, Search, Square, XCircle } from "lucide-react";
+import { ArrowLeft, Check, Loader2, RotateCcw, Search, Square, XCircle } from "lucide-react";
 import Shell from "@/components/Shell";
-import { Button, Section } from "@/components/ui";
+import { Button, Section, TableSkeleton } from "@/components/ui";
 import { formatDateTime, normalizeDateText } from "@/lib/dateFormat";
 import { getSupabase, hasSupabaseConfig } from "@/lib/supabase";
 
@@ -15,16 +15,24 @@ export default function FailedLogsPage() {
   const [retrying, setRetrying] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!hasSupabaseConfig()) return;
-    const { data } = await getSupabase()
-      .from("send_logs")
-      .select("*,campaigns(id,name,message_text,image_paths,options)")
-      .in("status", ["failed", "skipped", "retrying"])
-      .order("sent_at", { ascending: false })
-      .limit(500);
-    setLogs(data || []);
+    if (!hasSupabaseConfig()) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data } = await getSupabase()
+        .from("send_logs")
+        .select("*,campaigns(id,name,message_text,image_paths,options)")
+        .in("status", ["failed", "skipped", "retrying"])
+        .order("sent_at", { ascending: false })
+        .limit(500);
+      setLogs(data || []);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -115,9 +123,6 @@ export default function FailedLogsPage() {
           <Link href="/history" className="flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[12px] font-medium text-neutral-600 shadow-sm shadow-neutral-200/40 transition hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:shadow-black/10 dark:hover:bg-zinc-700">
             <ArrowLeft size={13} /> History
           </Link>
-          <Button variant="neutral" size="sm" onClick={load}>
-            <RefreshCw size={13} /> Refresh
-          </Button>
           <Button onClick={retrySelected} disabled={retrying || selectedRows.length === 0}>
             {retrying ? <Loader2 className="animate-spin" size={14} /> : <RotateCcw size={14} />}
             Retry selected
@@ -155,7 +160,7 @@ export default function FailedLogsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((log) => {
+                  {!loading && filtered.map((log) => {
                     const disabled = log.status === "retrying";
                     return (
                       <tr key={log.id} className="border-b border-neutral-50 hover:bg-neutral-50/80 dark:border-zinc-800/60 dark:hover:bg-zinc-800/40">
@@ -180,6 +185,7 @@ export default function FailedLogsPage() {
                   })}
                 </tbody>
               </table>
+              {loading && <TableSkeleton rows={8} columns={7} />}
             </div>
           </Section>
         </div>

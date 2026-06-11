@@ -32,8 +32,36 @@ export async function POST(request) {
     if (!message.trim() && files.length === 0 && imagePaths.length === 0) {
       return Response.json({ error: "Add a message or at least one image" }, { status: 400 });
     }
+    if (options.consentConfirmed === false) {
+      return Response.json({ error: "Confirm expected-contact consent before launching" }, { status: 400 });
+    }
+
+    const perCampaignCap = Math.max(1, Number(options.perCampaignCap || 500));
+    if (recipients.length > perCampaignCap) {
+      return Response.json({ error: `Campaign has ${recipients.length} recipients, above the cap of ${perCampaignCap}` }, { status: 400 });
+    }
 
     const supabase = getSupabase();
+    const dailySendCap = Math.max(1, Number(options.dailySendCap || 250));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { count: sentToday, error: countError } = await supabase
+      .from("send_logs")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "sent")
+      .gte("sent_at", today.toISOString());
+    if (countError) throw countError;
+    if (Number(sentToday || 0) + recipients.length > dailySendCap) {
+      return Response.json({
+        error: `Daily cap would be exceeded. Sent today: ${sentToday || 0}, cap: ${dailySendCap}`,
+      }, { status: 400 });
+    }
+
+    const campaignOptions = {
+      ...options,
+      recipientsSnapshot: recipients,
+      attachmentCount: files.length + imagePaths.length,
+    };
     const { data: campaign, error: insertError } = await supabase
       .from("campaigns")
       .insert({
@@ -41,7 +69,7 @@ export async function POST(request) {
         message_text: message,
         total: recipients.length,
         status: "pending",
-        options,
+        options: campaignOptions,
       })
       .select()
       .single();
@@ -97,13 +125,22 @@ export async function POST(request) {
         minDelayMs: Math.max(1000, Number(options.minDelayMs || 8000)),
         maxDelayMs: Math.max(Number(options.maxDelayMs || 25000), Number(options.minDelayMs || 8000)),
         defaultCountryCode: options.defaultCountryCode || "",
+        scheduledFor: options.scheduledFor || null,
+        quietHoursEnabled: options.quietHoursEnabled === true,
+        quietHoursStart: options.quietHoursStart || "21:00",
+        quietHoursEnd: options.quietHoursEnd || "09:00",
+        dailySendCap,
+        perCampaignCap,
+        cooldownHours: Math.max(0, Number(options.cooldownHours || 0)),
+        warmupMode: options.warmupMode === true,
+        adaptiveDelayEnabled: options.adaptiveDelayEnabled !== false,
       },
     }).catch(async (error) => {
       await supabase.from("campaigns").update({ status: "error", finished_at: new Date().toISOString() }).eq("id", campaign.id);
       console.error(error);
     });
 
-    return Response.json({ campaignId: campaign.id });
+    return Response.json({ campaignId: campaign.id, queued: true });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

@@ -34,6 +34,23 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
     setLists(data || []);
   }
 
+  function countsFor(list) {
+    const counts = { sent: 0, failed: 0, skipped: 0, used: 0, unused: 0, partial: 0 };
+    const recipients = list.recipients || [];
+    for (const r of recipients) {
+      const s = r.localStatus || r.status || "unused";
+      if (s === "sent") counts.sent += 1;
+      else if (s === "failed") counts.failed += 1;
+      else if (s === "skipped") counts.skipped += 1;
+      else if (s === "used") counts.used += 1;
+      else counts.unused += 1;
+    }
+    // partial if mixture of used/unused/sent/failed
+    const hasUsed = counts.used + counts.sent + counts.failed + counts.skipped > 0;
+    if (hasUsed && counts.unused > 0) counts.partial = 1;
+    return counts;
+  }
+
   async function parseFile(file, format) {
     if (!file) return;
     if (format === "json") {
@@ -219,11 +236,22 @@ export default function RecipientsInput({ recipients, setRecipients, defaultCoun
           <div className="flex flex-col gap-2">
             <select className="field h-10 px-3 text-[13px]" onChange={(event) => loadList(event.target.value)} defaultValue="">
               <option value="">Load saved list...</option>
-              {lists.map((list) => (
-                <option key={list.id} value={list.id}>
-                  {list.name} ({list.recipients?.length || 0})
-                </option>
-              ))}
+              {lists.map((list) => {
+                const c = countsFor(list);
+                const parts = [];
+                if (c.sent) parts.push(`sent:${c.sent}`);
+                if (c.failed) parts.push(`failed:${c.failed}`);
+                if (c.skipped) parts.push(`skipped:${c.skipped}`);
+                if (c.used) parts.push(`used:${c.used}`);
+                if (c.unused) parts.push(`unused:${c.unused}`);
+                if (c.partial) parts.push(`partial`);
+                const suffix = parts.length ? ` — ${parts.join(" ")}` : "";
+                return (
+                  <option key={list.id} value={list.id}>
+                    {list.name} ({list.recipients?.length || 0}){suffix}
+                  </option>
+                );
+              })}
             </select>
             <div className="flex gap-2">
               <input

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, FileText, History, ImageIcon, Loader2, Plus, RadioTower, RotateCcw, Send, Trash2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, FileText, History, ImageIcon, Loader2, RadioTower, RotateCcw, Send, Trash2, XCircle } from "lucide-react";
 import Shell from "@/components/Shell";
-import { Button, Section } from "@/components/ui";
-import { formatDateTime, normalizeDateText } from "@/lib/dateFormat";
+import { Button, PageSkeleton, Section, TableSkeleton } from "@/components/ui";
+import { campaignDisplayTitle, campaignStatus, campaignSubtitle } from "@/lib/campaignDisplay";
+import { formatDateTime } from "@/lib/dateFormat";
 import { getPublicUrl, getSupabase, hasSupabaseConfig } from "@/lib/supabase";
 
 export default function CampaignDetailPage() {
@@ -19,14 +20,31 @@ export default function CampaignDetailPage() {
   const [retryError, setRetryError] = useState("");
   const [retryNotice, setRetryNotice] = useState("");
   const [liveProgress, setLiveProgress] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!hasSupabaseConfig()) return;
-    const supabase = getSupabase();
-    const { data: campaignData } = await supabase.from("campaigns").select("*").eq("id", id).single();
-    const { data: logData } = await supabase.from("send_logs").select("*").eq("campaign_id", id).order("sent_at", { ascending: false });
-    setCampaign(campaignData);
-    setLogs(logData || []);
+    if (!hasSupabaseConfig()) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const supabase = getSupabase();
+      const { data: campaignData } = await supabase.from("campaigns").select("*").eq("id", id).single();
+      const { data: campaignIndex } = await supabase.from("campaigns").select("id").order("created_at", { ascending: false });
+      const { data: logData } = await supabase.from("send_logs").select("*").eq("campaign_id", id).order("sent_at", { ascending: false });
+      const rows = campaignIndex || [];
+      const newestIndex = Math.max(0, rows.findIndex((row) => row.id === id));
+      const oldestFirstIndex = Math.max(0, rows.length - newestIndex - 1);
+      setCampaign(campaignData ? {
+        ...campaignData,
+        displayTitle: campaignDisplayTitle(campaignData, oldestFirstIndex),
+        subtitle: campaignSubtitle(campaignData),
+        displayStatus: campaignStatus(campaignData),
+      } : null);
+      setLogs(logData || []);
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
 
   const refreshProgress = useCallback(async () => {
@@ -142,20 +160,18 @@ export default function CampaignDetailPage() {
 
   return (
     <Shell noPadding>
+      {loading ? <PageSkeleton title="Loading campaign detail" /> : (
       <div className="flex h-full flex-col overflow-hidden bg-neutral-100 dark:bg-zinc-950">
         <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 dark:border-zinc-800 dark:bg-zinc-900">
           <span className="mr-1 truncate text-[14px] font-semibold text-neutral-800 dark:text-zinc-100">
-            {normalizeDateText(campaign?.name || "Campaign detail")}
+            {campaign?.displayTitle || "Campaign detail"}
           </span>
           <div className="mr-1 h-5 w-px bg-neutral-200 dark:bg-zinc-700" />
-          <Link href="/history" className="flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[12px] font-medium text-neutral-600 shadow-sm shadow-neutral-200/40 transition hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:shadow-black/10 dark:hover:bg-zinc-700">
+          <Link href="/campaigns" className="flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[12px] font-medium text-neutral-600 shadow-sm shadow-neutral-200/40 transition hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:shadow-black/10 dark:hover:bg-zinc-700">
             <ArrowLeft size={13} /> Back
           </Link>
           <Link href="/history" className="flex h-9 items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 text-[12px] font-medium text-neutral-600 shadow-sm shadow-neutral-200/40 transition hover:bg-neutral-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 dark:shadow-black/10 dark:hover:bg-zinc-700">
             <History size={13} /> History
-          </Link>
-          <Link href="/campaign/new" className="flex h-9 items-center gap-1.5 rounded-xl bg-emerald-500 px-3.5 text-[13px] font-semibold text-white shadow-sm shadow-emerald-500/25 transition hover:bg-emerald-400">
-            <Plus size={14} /> New Campaign
           </Link>
           <button onClick={() => openRetry()} disabled={resendableLogs.length === 0} className="flex h-9 items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 text-[12px] font-medium text-amber-700 shadow-sm shadow-amber-200/30 transition hover:bg-amber-100 disabled:opacity-50 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/20">
             <RotateCcw size={13} /> Resend failed
@@ -169,13 +185,17 @@ export default function CampaignDetailPage() {
               eyebrow="Campaign info"
               aside={<Button variant="neutral" size="sm" onClick={exportCsv}>Export CSV</Button>}
             >
-              <div className="mb-5 grid gap-3 sm:grid-cols-5">
+              <div className="mb-5 grid gap-3 sm:grid-cols-6">
                 <StatusBox label="Sent" value={statusCounts.sent || 0} tone="emerald" />
                 <StatusBox label="Failed" value={statusCounts.failed || 0} tone="rose" />
                 <StatusBox label="Skipped" value={statusCounts.skipped || 0} tone="amber" />
                 <StatusBox label="Retrying" value={statusCounts.retrying || 0} tone="sky" />
+                <StatusBox label="Partial" value={campaign?.displayStatus === "partial" ? 1 : 0} tone={campaign?.displayStatus === "partial" ? "amber" : "neutral"} />
                 <StatusBox label="Attachments" value={attachmentCount} tone={attachmentCount ? "emerald" : "neutral"} />
               </div>
+              {campaign?.subtitle && (
+                <p className="mb-4 text-[12px] text-neutral-400 dark:text-zinc-500">{campaign.subtitle}</p>
+              )}
               {(retryNotice || retryError || campaignProgressActive) && (
                 <div className={`mb-5 flex items-start gap-3 rounded-xl border px-4 py-3 text-[13px] ${
                   retryError
@@ -216,11 +236,6 @@ export default function CampaignDetailPage() {
             <Section
               title="Send Log"
               eyebrow={`${logs.length} entries`}
-              aside={
-                <Button variant="neutral" size="sm" onClick={load}>
-                  Refresh
-                </Button>
-              }
             >
               <div className="overflow-auto rounded-xl">
                 <table className="w-full text-left text-[13px]">
@@ -234,7 +249,7 @@ export default function CampaignDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {logs.map((log) => (
+                    {!loading && logs.map((log) => (
                       <tr key={log.id} className="border-b border-neutral-50 hover:bg-neutral-50/80 dark:border-zinc-800/60 dark:hover:bg-zinc-800/40">
                         <td className="p-3 mono text-neutral-700 dark:text-zinc-300">{log.number}</td>
                         <td className="p-3 text-neutral-600 dark:text-zinc-400">{log.name}</td>
@@ -257,11 +272,13 @@ export default function CampaignDetailPage() {
                     ))}
                   </tbody>
                 </table>
+                {loading && <TableSkeleton rows={8} columns={6} />}
               </div>
             </Section>
           </div>
         </div>
       </div>
+      )}
 
       {retryOpen && (
         <div className="fixed inset-0 z-300 flex items-center justify-center overflow-y-auto bg-black/55 p-4 backdrop-blur-sm">
